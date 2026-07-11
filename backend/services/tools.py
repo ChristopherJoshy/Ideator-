@@ -14,6 +14,8 @@ import httpx
 
 from backend.config import settings
 from backend.db.redis_client import get_redis_client
+from backend.db.qdrant_client import get_qdrant_client
+from qdrant_client.http import models
 from backend.services.embeddings import embed
 
 logger = logging.getLogger(__name__)
@@ -40,25 +42,59 @@ async def collision_check(text: str) -> str:
     if vector is None:
         return "Collision check skipped — embedding service unavailable."
 
-    try:
-        redis = get_redis_client()
-        raw = await redis.lrange(COLLISION_KEY, 0, -1)
-        best_score = 0.0
-        best_text = None
-        for item in raw:
-            obj = json.loads(item)
-            score = _cosine(vector, obj.get("vec", []))
-            if score > best_score:
-                best_score = score
-                best_text = obj.get("text")
+    best_score = 0.0
+    best_text = None
+    qdrant_worked = False
 
-        # Persist this idea so future checks can detect self-similarity.
-        await redis.lpush(COLLISION_KEY, json.dumps({"text": text, "vec": vector}))
-        await redis.ltrim(COLLISION_KEY, 0, MAX_STORED - 1)
-        await redis.expire(COLLISION_KEY, 60 * 60 * 24 * 30)
-    except Exception as exc:
-        logger.warning("Collision check storage failed: %s", exc)
-        return "Collision check skipped — memory store unavailable."
+    # 1. Try Qdrant (which performs native server-side vector similarity search)
+    try:
+        qdrant = get_qdrant_client()
+        search_result = await qdrant.query_points(
+            collection_name="claimed_idea_vectors",
+            query=vector,
+            limit=1
+        )
+        if search_result.points:
+            closest_point = search_result.points[0]
+            best_score = closest_point.score
+            best_text = closest_point.payload.get("text")
+            
+        # Save to Qdrant
+        import uuid
+        await qdrant.upsert(
+            collection_name="claimed_idea_vectors",
+            points=[
+                models.PointStruct(
+                    id=str(uuid.uuid4()),
+                    vector=vector,
+                    payload={"text": text}
+                )
+            ]
+        )
+        qdrant_worked = True
+    except Exception as qdrant_exc:
+        logger.warning("Collision check Qdrant querying failed: %s. Trying Redis fallback...", qdrant_exc)
+
+    # 2. Redis Fallback (only run if Qdrant failed)
+    if not qdrant_worked:
+        try:
+            redis = get_redis_client()
+            raw = await redis.lrange(COLLISION_KEY, 0, -1)
+            for item in raw:
+                obj = json.loads(item)
+                score = _cosine(vector, obj.get("vec", []))
+                if score > best_score:
+                    best_score = score
+                    best_text = obj.get("text")
+
+            # Persist to Redis
+            await redis.lpush(COLLISION_KEY, json.dumps({"text": text, "vec": vector}))
+            await redis.ltrim(COLLISION_KEY, 0, MAX_STORED - 1)
+            await redis.expire(COLLISION_KEY, 60 * 60 * 24 * 30)
+        except Exception as redis_exc:
+            logger.warning("Collision check Redis fallback failed: %s", redis_exc)
+            if not best_text:
+                return "Collision check skipped — memory store unavailable."
 
     if best_text and best_score >= threshold:
         snippet = best_text if len(best_text) <= 80 else best_text[:77] + "…"

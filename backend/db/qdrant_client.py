@@ -37,12 +37,30 @@ async def init_qdrant_collections():
     for collection in collections:
         try:
             exists = await client.collection_exists(collection_name=collection)
+            if exists:
+                try:
+                    info = await client.get_collection(collection_name=collection)
+                    # Check if vector dimension is 1536.
+                    # Qdrant v1.x returns vectors config size under config.params.vectors.size
+                    current_size = 0
+                    if hasattr(info.config.params, "vectors") and hasattr(info.config.params.vectors, "size"):
+                        current_size = info.config.params.vectors.size
+                    elif hasattr(info.config.params, "vectors") and isinstance(info.config.params.vectors, dict):
+                        current_size = info.config.params.vectors.get("size", 0)
+                        
+                    if current_size != 1536:
+                        logger.warning(f"Dimension mismatch on collection {collection}: expected 1536, got {current_size}. Re-creating collection...")
+                        await client.delete_collection(collection_name=collection)
+                        exists = False
+                except Exception as check_err:
+                    logger.warning(f"Failed to check details for collection {collection}: {check_err}")
+
             if not exists:
                 logger.info(f"Creating Qdrant collection: {collection}...")
                 await client.create_collection(
                     collection_name=collection,
                     vectors_config=models.VectorParams(
-                        size=384,  # Dimension of sentence-transformers/all-MiniLM-L6-v2
+                        size=1536,  # OpenAI text-embedding-3-small dimension
                         distance=models.Distance.COSINE
                     )
                 )
