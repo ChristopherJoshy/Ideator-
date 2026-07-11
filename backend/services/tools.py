@@ -258,7 +258,7 @@ async def fetch_newsletter_feeds(topic: str) -> str:
         return "Newsletter feed service is currently offline."
 
 
-async def generate_chart(chart_type: str, title: str, labels: list[str] | str, values: list[float] | str, x_label: str = "", y_label: str = "") -> str:
+async def generate_chart(chart_type: str, title: str, labels: list[str] | str, values: list[float] | str, x_label: str = "", y_label: str = "", base_url: str = "http://localhost:8000") -> str:
     """
     Generates a visual chart (bar, line, pie, or scatter) using matplotlib,
     saves the image as a static asset, and returns the absolute markdown image link.
@@ -321,7 +321,7 @@ async def generate_chart(chart_type: str, title: str, labels: list[str] | str, v
         plt.close(fig)
         
         # Generate full URL link
-        image_url = f"http://localhost:8000/static/charts/{filename}"
+        image_url = f"{base_url}/static/charts/{filename}"
         
         # Return markdown representation so the frontend renders it directly
         return json.dumps({
