@@ -49,10 +49,20 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to connect Qdrant: {e}")
 
+    # 4. Start periodic Telegram metrics reporter task
+    import asyncio
+    from backend.services.telegram_logger import periodic_metrics_reporter
+    metrics_task = asyncio.create_task(periodic_metrics_reporter())
+
     yield
     
     # Shutdown tasks
     logger.info("Shutting down services...")
+    metrics_task.cancel()
+    try:
+        await metrics_task
+    except asyncio.CancelledError:
+        pass
     await close_mongodb_connection()
     await close_redis_connection()
     await close_qdrant_connection()
@@ -73,6 +83,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+from fastapi.staticfiles import StaticFiles
+import os
+
+static_path = os.path.join(os.path.dirname(__file__), "static")
+os.makedirs(static_path, exist_ok=True)
+app.mount("/static", StaticFiles(directory=static_path), name="static")
 
 # Include routers
 app.include_router(health_router, prefix="/api")

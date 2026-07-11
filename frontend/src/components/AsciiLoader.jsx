@@ -119,7 +119,7 @@ export default function AsciiLoader({ text = 'Loading Ideator' }) {
   return (
     <div style={S.wrap}>
       {/* ── Matrix rain panel (left decoration) ── */}
-      <div style={S.matrixPane} aria-hidden="true">
+      <div style={S.matrixPane} className="desktop-only" aria-hidden="true">
         {matrixGrid.map((row, ri) => (
           <div key={ri} style={S.matrixRow}>
             {row.map((cell, ci) => {
@@ -212,7 +212,7 @@ export default function AsciiLoader({ text = 'Loading Ideator' }) {
       </div>
 
       {/* ── Mirror matrix rain panel (right) ── */}
-      <div style={{ ...S.matrixPane, transform: 'scaleX(-1)' }} aria-hidden="true">
+      <div style={{ ...S.matrixPane, transform: 'scaleX(-1)' }} className="desktop-only" aria-hidden="true">
         {matrixGrid.map((row, ri) => (
           <div key={ri} style={S.matrixRow}>
             {row.map((cell, ci) => {
@@ -285,7 +285,7 @@ const S = {
     flexDirection: 'column',
     alignItems: 'center',
     gap: '10px',
-    padding: '24px 28px',
+    padding: 'var(--ascii-center-padding, 24px 28px)',
     position: 'relative',
   },
 
@@ -293,22 +293,22 @@ const S = {
   cornerTL: {
     position: 'absolute', top: 0, left: 0,
     fontFamily: '"JetBrains Mono", monospace',
-    fontSize: '12px', color: '#333', userSelect: 'none',
+    fontSize: 'var(--ascii-corner-font-size, 12px)', color: '#333', userSelect: 'none',
   },
   cornerTR: {
     position: 'absolute', top: 0, right: 0,
     fontFamily: '"JetBrains Mono", monospace',
-    fontSize: '12px', color: '#333', userSelect: 'none',
+    fontSize: 'var(--ascii-corner-font-size, 12px)', color: '#333', userSelect: 'none',
   },
   cornerBL: {
     position: 'absolute', bottom: 0, left: 0,
     fontFamily: '"JetBrains Mono", monospace',
-    fontSize: '12px', color: '#333', userSelect: 'none',
+    fontSize: 'var(--ascii-corner-font-size, 12px)', color: '#333', userSelect: 'none',
   },
   cornerBR: {
     position: 'absolute', bottom: 0, right: 0,
     fontFamily: '"JetBrains Mono", monospace',
-    fontSize: '12px', color: '#333', userSelect: 'none',
+    fontSize: 'var(--ascii-corner-font-size, 12px)', color: '#333', userSelect: 'none',
   },
 
   /* Logo */
@@ -321,7 +321,7 @@ const S = {
   },
   logoLine: {
     fontFamily: '"JetBrains Mono", "Courier New", monospace',
-    fontSize: '13px',
+    fontSize: 'var(--ascii-logo-font-size, 13px)',
     lineHeight: '1.2',
     letterSpacing: '0',
     whiteSpace: 'pre',
@@ -330,7 +330,7 @@ const S = {
   /* Tagline */
   tagline: {
     fontFamily: '"JetBrains Mono", monospace',
-    fontSize: '12px',
+    fontSize: 'var(--ascii-tagline-font-size, 12px)',
     color: '#555',
     letterSpacing: '0.08em',
     marginTop: '4px',
@@ -349,7 +349,7 @@ const S = {
   /* Divider */
   divider: {
     fontFamily: '"JetBrains Mono", monospace',
-    fontSize: '11px',
+    fontSize: 'var(--ascii-divider-font-size, 11px)',
     color: '#1a1a1a',
     letterSpacing: '0',
     userSelect: 'none',

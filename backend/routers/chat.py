@@ -13,8 +13,8 @@ from backend.models.user import User
 from backend.models.chat import Chat, ChatMessage
 from backend.services.telegram_logger import log_chat_message, log_error
 from backend.services.memory import remember_in_background
-from backend.services.llm import generate_response, plan_skills, extract_session_facts, ModelUnavailableError
-from backend.services.tools import collision_check, web_research
+from backend.services.llm import generate_response, plan_skills, extract_session_facts, extract_chart_params, generate_chat_title, ModelUnavailableError
+from backend.services.tools import collision_check, web_research, academic_search, github_search, fetch_newsletter_feeds, generate_chart
 from backend.services.memory import remember_in_background, forget_chat, remember_session_facts, get_session_facts
 
 logger = logging.getLogger(__name__)
@@ -77,6 +77,15 @@ async def run_chat_pipeline(prompt: str, history: list, chat_id: str, user_id: s
     tool_steps: list[dict] = []
     assistant_content = ""
 
+    # Automatically generate chat title on first message using AI (gpt-4o-mini)
+    if not history:
+        try:
+            chat_title = await generate_chat_title(prompt)
+            await db.chats.update_one({"_id": chat_id}, {"$set": {"title": chat_title}})
+            logger.info("Automatically generated title '%s' for chat %s", chat_title, chat_id)
+        except Exception as exc:
+            logger.warning("Failed to auto-generate chat title for %s: %s", chat_id, exc)
+
     # Dynamic skill selection: a fast routing model decides which tools (if any)
     # are relevant to THIS message. Tools run only when the router asks for them.
     skills = await plan_skills(prompt)
@@ -125,6 +134,94 @@ async def run_chat_pipeline(prompt: str, history: list, chat_id: str, user_id: s
                 readable = paper_result
             context_parts.append(f"Web research result: {readable}")
 
+    if "academic_search" in skills:
+        yield {"event": "tool_start", "name": "AcademicSearch", "args": json.dumps({"query": prompt[:60]})}
+        academic_result = await academic_search(prompt)
+        yield {"event": "tool_end", "name": "AcademicSearch", "result": academic_result}
+        tool_steps.append({"tool": "AcademicSearch", "args": json.dumps({"query": prompt[:60]}), "result": academic_result})
+
+        # Build readable summary
+        try:
+            parsed = json.loads(academic_result)
+            if isinstance(parsed, dict) and "sources" in parsed:
+                source_lines = [
+                    f"- {s.get('title', 'Untitled')} ({s.get('url', '')})"
+                    for s in parsed["sources"]
+                ]
+                readable = "Academic search found these papers:\n" + "\n".join(source_lines)
+            else:
+                readable = academic_result
+        except Exception:
+            readable = academic_result
+        context_parts.append(f"Academic research: {readable}")
+
+    if "github_search" in skills:
+        yield {"event": "tool_start", "name": "GithubSearch", "args": json.dumps({"query": prompt[:60]})}
+        github_result = await github_search(prompt)
+        yield {"event": "tool_end", "name": "GithubSearch", "result": github_result}
+        tool_steps.append({"tool": "GithubSearch", "args": json.dumps({"query": prompt[:60]}), "result": github_result})
+
+        # Build readable summary
+        try:
+            parsed = json.loads(github_result)
+            if isinstance(parsed, dict) and "sources" in parsed:
+                source_lines = [
+                    f"- {s.get('title', 'Untitled')} ({s.get('url', '')})"
+                    for s in parsed["sources"]
+                ]
+                readable = "GitHub search found these repositories:\n" + "\n".join(source_lines)
+            else:
+                readable = github_result
+        except Exception:
+            readable = github_result
+        context_parts.append(f"GitHub search: {readable}")
+
+    if "fetch_newsletter_feeds" in skills:
+        yield {"event": "tool_start", "name": "FetchNewsletterFeeds", "args": json.dumps({"topic": prompt[:60]})}
+        newsletter_result = await fetch_newsletter_feeds(prompt)
+        yield {"event": "tool_end", "name": "FetchNewsletterFeeds", "result": newsletter_result}
+        tool_steps.append({"tool": "FetchNewsletterFeeds", "args": json.dumps({"topic": prompt[:60]}), "result": newsletter_result})
+
+        # Build readable summary
+        try:
+            parsed = json.loads(newsletter_result)
+            if isinstance(parsed, dict) and "sources" in parsed:
+                source_lines = [
+                    f"- {s.get('title', 'Untitled')} ({s.get('url', '')})"
+                    for s in parsed["sources"]
+                ]
+                readable = "Newsletter/Feed articles found:\n" + "\n".join(source_lines)
+            else:
+                readable = newsletter_result
+        except Exception:
+            readable = newsletter_result
+        context_parts.append(f"Newsletter updates: {readable}")
+
+    if "generate_chart" in skills:
+        yield {"event": "tool_start", "name": "GenerateChart", "args": json.dumps({"prompt": prompt[:60]})}
+        params = await extract_chart_params(prompt)
+        chart_result = await generate_chart(
+            chart_type=params.get("chart_type", "bar"),
+            title=params.get("title", "Chart"),
+            labels=params.get("labels", []),
+            values=params.get("values", []),
+            x_label=params.get("x_label", ""),
+            y_label=params.get("y_label", "")
+        )
+        yield {"event": "tool_end", "name": "GenerateChart", "result": chart_result}
+        tool_steps.append({"tool": "GenerateChart", "args": json.dumps(params), "result": chart_result})
+        
+        try:
+            parsed = json.loads(chart_result)
+            if isinstance(parsed, dict) and "sources" in parsed:
+                img_url = parsed["sources"][0]["url"]
+                readable = f"Successfully generated a {params.get('chart_type')} chart titled '{params.get('title')}' at URL: {img_url}. You MUST embed this chart directly in your final response using the Markdown syntax: `![{params.get('title')}]({img_url})`."
+            else:
+                readable = chart_result
+        except Exception:
+            readable = chart_result
+        context_parts.append(f"Chart generation result: {readable}")
+
     tool_context = "\n\n".join(context_parts) or None
 
     # Generation across all providers with fallback, grounded in tool output + session memory.
@@ -164,7 +261,7 @@ async def run_chat_pipeline(prompt: str, history: list, chat_id: str, user_id: s
         sender=assistant_msg.sender, content=assistant_msg.content,
     )
     asyncio.create_task(
-        log_chat_message(sender_name="Ideator", message=assistant_content.strip(), is_user=False)
+        log_chat_message(sender_name="Ideator", message=assistant_content.strip(), is_user=False, chat_id=chat_id)
     )
     yield {"event": "done"}
 
@@ -190,7 +287,7 @@ async def stream_chat(
         message_id=user_msg.id, chat_id=chat_id, user_id=current_user.id,
         sender=user_msg.sender, content=user_msg.content,
     )
-    asyncio.create_task(log_chat_message(sender_name=current_user.display_name, message=prompt, is_user=True))
+    asyncio.create_task(log_chat_message(sender_name=current_user.display_name, message=prompt, is_user=True, chat_id=chat_id))
 
     async def event_generator():
         async for event in run_chat_pipeline(
@@ -248,7 +345,7 @@ async def websocket_chat(websocket: WebSocket, chat_id: str):
             message_id=user_msg.id, chat_id=chat_id, user_id=user.id,
             sender=user_msg.sender, content=user_msg.content,
         )
-        asyncio.create_task(log_chat_message(sender_name=user.display_name, message=prompt, is_user=True))
+        asyncio.create_task(log_chat_message(sender_name=user.display_name, message=prompt, is_user=True, chat_id=chat_id))
 
         async for event in run_chat_pipeline(
             prompt, chat_doc.get("messages", []), chat_id, user.id, user.display_name

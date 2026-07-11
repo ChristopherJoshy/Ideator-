@@ -85,6 +85,7 @@ function Sidebar({ activeChatId, onSelectChat, onCreateChat, user, onLogout, onD
   };
 
   const truncateTitle = (chat) => {
+    if (chat.title) return chat.title;
     if (!chat.messages || chat.messages.length === 0) return 'Empty Chat Session';
     const firstMsg = chat.messages[0].content;
     return firstMsg.length > 28 ? firstMsg.substring(0, 28) + '…' : firstMsg;

@@ -115,11 +115,32 @@ async def remember_session_facts(chat_id: str, user_id: str, facts: list[str]) -
 
 async def get_session_facts(chat_id: str) -> list[str]:
     """Return the accumulated durable takeaways for a session (oldest first)."""
+    facts = []
     try:
         redis = get_redis_client()
         key = REDIS_FACTS_PREFIX.format(chat_id=chat_id)
         raw = await redis.lrange(key, 0, -1)
-        return [json.loads(item).get("fact", "") for item in raw if item]
+        facts = [json.loads(item).get("fact", "") for item in raw if item]
     except Exception as exc:
         logger.warning("Redis session-fact retrieval failed: %s", exc)
-        return []
+
+    if not facts:
+        try:
+            qdrant = get_qdrant_client()
+            results = await qdrant.scroll(
+                collection_name="idea_dna_vectors",
+                scroll_filter=models.Filter(
+                    must=[models.FieldCondition(key="chat_id", match=models.MatchValue(value=chat_id))]
+                ),
+                limit=100,
+                with_payload=True,
+                with_vectors=False,
+            )
+            points = results[0]
+            facts = [p.payload.get("fact") for p in points if p.payload and p.payload.get("fact")]
+            if facts:
+                logger.info("Retrieved %d session facts from Qdrant fallback for chat_id %s", len(facts), chat_id)
+        except Exception as exc:
+            logger.warning("Qdrant session-fact fallback retrieval failed: %s", exc)
+
+    return facts

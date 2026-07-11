@@ -48,6 +48,17 @@ async def init_qdrant_collections():
                 )
             else:
                 logger.debug(f"Qdrant collection {collection} already exists.")
+            
+            # Create payload index for chat_id (required by Qdrant filter delete/querying)
+            try:
+                await client.create_payload_index(
+                    collection_name=collection,
+                    field_name="chat_id",
+                    field_schema=models.PayloadSchemaType.KEYWORD
+                )
+                logger.debug(f"Created chat_id payload index for collection: {collection}")
+            except Exception as e:
+                logger.warning(f"Could not create chat_id payload index on {collection}: {e}")
         except Exception as e:
             logger.error(f"Error checking/creating Qdrant collection {collection}: {e}")
 

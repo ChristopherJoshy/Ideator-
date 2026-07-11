@@ -89,6 +89,21 @@ function MarkdownRenderer({ content }) {
           td: ({ children }) => (
             <td className="ai-md-td">{children}</td>
           ),
+          // Images - responsive and constrained to fit smaller/mobile layouts
+          img: ({ src, alt }) => (
+            <img
+              src={src}
+              alt={alt}
+              style={{
+                maxWidth: '100%',
+                height: 'auto',
+                borderRadius: '8px',
+                margin: '12px 0',
+                display: 'block',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+              }}
+            />
+          ),
         }}
       >
         {content}

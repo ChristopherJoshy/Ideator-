@@ -19,6 +19,13 @@
   /* Fonts */
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
+
+  /* Loader responsiveness variables */
+  --ascii-logo-font-size: 13px;
+  --ascii-divider-font-size: 11px;
+  --ascii-tagline-font-size: 12px;
+  --ascii-corner-font-size: 12px;
+  --ascii-center-padding: 24px 28px;
   
   font-family: var(--font-sans);
   color: var(--text-primary);
@@ -94,6 +101,33 @@ body {
   }
   .desktop-only {
     display: none !important;
+  }
+  :root {
+    --ascii-logo-font-size: 8px;
+    --ascii-divider-font-size: 8px;
+    --ascii-tagline-font-size: 10px;
+    --ascii-corner-font-size: 10px;
+    --ascii-center-padding: 24px 16px;
+  }
+}
+
+@media (max-width: 500px) {
+  :root {
+    --ascii-logo-font-size: 6.5px;
+    --ascii-divider-font-size: 6.5px;
+    --ascii-tagline-font-size: 9px;
+    --ascii-corner-font-size: 8px;
+    --ascii-center-padding: 24px 12px;
+  }
+}
+
+@media (max-width: 380px) {
+  :root {
+    --ascii-logo-font-size: 5.2px;
+    --ascii-divider-font-size: 5.2px;
+    --ascii-tagline-font-size: 8.5px;
+    --ascii-corner-font-size: 7px;
+    --ascii-center-padding: 24px 8px;
   }
 }
 
@@ -357,3 +391,13 @@ body {
 /* First & last child spacing within the markdown container */
 .ai-markdown > *:first-child { margin-top: 0 !important; }
 .ai-markdown > *:last-child  { margin-bottom: 0 !important; }
+
+/* Responsive image styling to prevent overflow on mobile and small displays */
+.ai-markdown img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 12px 0;
+  display: block;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}

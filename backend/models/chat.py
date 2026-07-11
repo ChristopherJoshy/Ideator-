@@ -20,6 +20,7 @@ class Chat(BaseModel):
     messages: List[ChatMessage] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+    title: Optional[str] = None
 
     model_config = {
         "populate_by_name": True,
