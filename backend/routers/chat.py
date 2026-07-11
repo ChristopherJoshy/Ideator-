@@ -66,7 +66,7 @@ async def delete_chat(chat_id: str, current_user: User = Depends(get_current_use
     return {"deleted": True}
 
 
-async def run_chat_pipeline(prompt: str, history: list, chat_id: str, user_id: str, user_name: str):
+async def run_chat_pipeline(prompt: str, history: list, chat_id: str, user_id: str, user_name: str, base_url: str = "http://localhost:8000"):
     """Shared, mock-free chat pipeline yielding SSE/WebSocket events.
 
     Runs real tool steps (collision check + optional web research), then generates a
@@ -206,7 +206,8 @@ async def run_chat_pipeline(prompt: str, history: list, chat_id: str, user_id: s
             labels=params.get("labels", []),
             values=params.get("values", []),
             x_label=params.get("x_label", ""),
-            y_label=params.get("y_label", "")
+            y_label=params.get("y_label", ""),
+            base_url=base_url
         )
         yield {"event": "tool_end", "name": "GenerateChart", "result": chart_result}
         tool_steps.append({"tool": "GenerateChart", "args": json.dumps(params), "result": chart_result})
@@ -289,9 +290,13 @@ async def stream_chat(
     )
     asyncio.create_task(log_chat_message(sender_name=current_user.display_name, message=prompt, is_user=True, chat_id=chat_id))
 
+    host = request.headers.get("host") or request.url.netloc
+    scheme = "https" if request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https" else "http"
+    base_url = f"{scheme}://{host}"
+
     async def event_generator():
         async for event in run_chat_pipeline(
-            prompt, chat_doc.get("messages", []), chat_id, current_user.id, current_user.display_name
+            prompt, chat_doc.get("messages", []), chat_id, current_user.id, current_user.display_name, base_url=base_url
         ):
             if await request.is_disconnected():
                 return
@@ -347,8 +352,12 @@ async def websocket_chat(websocket: WebSocket, chat_id: str):
         )
         asyncio.create_task(log_chat_message(sender_name=user.display_name, message=prompt, is_user=True, chat_id=chat_id))
 
+        host = websocket.headers.get("host") or websocket.url.netloc
+        scheme = "https" if websocket.url.scheme == "wss" or websocket.headers.get("x-forwarded-proto") == "https" else "http"
+        base_url = f"{scheme}://{host}"
+
         async for event in run_chat_pipeline(
-            prompt, chat_doc.get("messages", []), chat_id, user.id, user.display_name
+            prompt, chat_doc.get("messages", []), chat_id, user.id, user.display_name, base_url=base_url
         ):
             await websocket.send_json(event)
 
