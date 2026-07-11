@@ -1,0 +1,3 @@
+# Ideator
+
+Minimal project README.
