@@ -1,0 +1,39 @@
+providers:
+  groq:
+    base_url: "https://api.groq.com/openai/v1"
+    models:
+      default: "llama-3.3-70b-versatile"
+      fast: "llama-3.1-8b-instant"
+    rate_limits:
+      rpm: 30
+      rpd: 14400
+      tpm: 30000
+    tasks: [routing, classification, collision_reasoning, idea_tagging, conversation]
+
+  cerebras:
+    base_url: "https://api.cerebras.ai/v1"
+    models:
+      default: "gpt-oss-120b"
+    rate_limits:
+      rpm: 30
+      rpd: 1000
+    tasks: [paper_synthesis, long_generation]
+
+  mistral:
+    base_url: "https://api.mistral.ai/v1"
+    models:
+      default: "mistral-large-latest"
+    rate_limits:
+      rpm: 2
+      rpd: 100
+    tasks: [deep_idea_synthesis]
+
+  openai:
+    base_url: "https://api.openai.com/v1"
+    models:
+      default: "gpt-4o-mini"
+      vision: "gpt-4o-mini"
+    rate_limits:
+      rpm: 500
+      tpm: 200000
+    tasks: [vision, fallback_generation]

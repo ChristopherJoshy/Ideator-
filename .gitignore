@@ -1,0 +1,131 @@
+# ============================================================
+#  Ideator — Project-Specific .gitignore
+#  Stack: FastAPI (Python 3.12) + Vite/React (Node) +
+#         MongoDB · Redis · Qdrant · Sentence-Transformers
+# ============================================================
+
+# ── Python ──────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.pdb
+
+# Distribution / packaging
+dist/
+build/
+develop-eggs/
+eggs/
+.eggs/
+*.egg-info/
+*.egg
+MANIFEST
+wheels/
+share/python-wheels/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.python-version
+
+# Testing & coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.cover
+.tox/
+.nox/
+.hypothesis/
+
+# Type checking
+.mypy_cache/
+.pyright/
+pyrightconfig.json
+
+# ── Node / Vite / React ─────────────────────────────────────
+node_modules/
+frontend/node_modules/
+
+# Build outputs
+frontend/dist/
+frontend/dist-ssr/
+*.local
+
+# Vite cache
+frontend/.vite/
+
+# Package manager lock files — keep package-lock.json / yarn.lock
+# but ignore npm debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+
+# ── Environment & secrets ───────────────────────────────────
+.env
+.env.*
+!.env.example        # Always commit the example template
+
+# ── Databases & vector stores (local volumes) ───────────────
+/qdrant_storage/
+/qdrant_data/
+/mongodb_data/
+/redis_data/
+
+# SQLite (dev fallback)
+*.sqlite3
+*.sqlite3-journal
+*.db
+
+# Sentence-Transformers / HuggingFace model cache
+.cache/
+models/
+*.bin
+*.safetensors
+*.gguf
+
+# ── Logs ────────────────────────────────────────────────────
+*.log
+logs/
+backend/logs/
+
+# ── IDE & editor artefacts ──────────────────────────────────
+.vscode/
+.idea/
+*.iml
+*.suo
+*.user
+*.sln.docstates
+.project
+.classpath
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# ── Docker ──────────────────────────────────────────────────
+# (local override files; committed docker-compose.yml is fine)
+docker-compose.override.yml
+.docker/
+
+# ── Misc ────────────────────────────────────────────────────
+*.bak
+*.swp
+*.tmp
+*~
+.ipynb_checkpoints/
