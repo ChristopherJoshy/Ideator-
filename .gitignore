@@ -85,7 +85,7 @@ pnpm-debug.log*
 
 # Sentence-Transformers / HuggingFace model cache
 .cache/
-models/
+/models/
 *.bin
 *.safetensors
 *.gguf
