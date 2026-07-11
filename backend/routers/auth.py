@@ -76,18 +76,18 @@ async def login(payload: LoginRequest, response: Response, request: Request):
         user = User(display_name=display_name)
         await db.users.insert_one(user.model_dump(by_alias=True))
     
-    # Configure cookie based on env
-    # Cross-site cookie requirements: samesite="none", secure=True
-    # For localhost dev, samesite="lax", secure=False is fine
-    # Let's support samesite="none" and secure=True for Vercel -> Ngrok setups
-    is_prod_or_cross_site = settings.APP_ENV == "production" or "vercel.app" in settings.ALLOWED_ORIGINS or any("ngrok" in o for o in settings.ALLOWED_ORIGINS)
+    # Dynamic HTTPS / cross-site detection to prevent browser cookie rejection on local HTTP
+    is_secure = (
+        request.url.scheme == "https" or
+        request.headers.get("x-forwarded-proto", "").lower() == "https"
+    )
     
     response.set_cookie(
         key="session_id",
         value=user.id,
         httponly=True,
-        samesite="none" if is_prod_or_cross_site else "lax",
-        secure=True if is_prod_or_cross_site else False,
+        samesite="none" if is_secure else "lax",
+        secure=is_secure,
         max_age=3600 * 24 * 7,  # 7 days
         path="/"
     )
@@ -95,18 +95,23 @@ async def login(payload: LoginRequest, response: Response, request: Request):
     logger.info(f"User '{display_name}' logged in. Session created: {user.id}")
     return {"message": "Logged in successfully", "user": user}
 
+
 @router.get("/me", response_model=User, response_model_by_alias=False)
 async def get_me(current_user: User = Depends(get_current_user)):
     return current_user
 
+
 @router.post("/logout")
-async def logout(response: Response):
-    is_prod_or_cross_site = settings.APP_ENV == "production" or "vercel.app" in settings.ALLOWED_ORIGINS or any("ngrok" in o for o in settings.ALLOWED_ORIGINS)
+async def logout(response: Response, request: Request):
+    is_secure = (
+        request.url.scheme == "https" or
+        request.headers.get("x-forwarded-proto", "").lower() == "https"
+    )
     
     response.delete_cookie(
         key="session_id",
         path="/",
-        samesite="none" if is_prod_or_cross_site else "lax",
-        secure=True if is_prod_or_cross_site else False
+        samesite="none" if is_secure else "lax",
+        secure=is_secure
     )
     return {"message": "Logged out successfully"}
