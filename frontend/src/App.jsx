@@ -85,7 +85,7 @@ function App() {
   }
 
   return (
-    <div style={styles.appContainer}>
+    <div style={styles.appContainer} className="app-shell">
       {/* Header */}
       <header style={styles.header}>
         <div style={styles.logoSection}>
@@ -114,7 +114,7 @@ function App() {
             ...styles.sidebarWrapper,
             ...(isSidebarOpen ? {} : styles.sidebarHidden),
             ...(isSidebarOpen && isMobile ? styles.sidebarMobile : {}),
-          }}>
+          }} className="sidebarWrapper">
             <Sidebar 
               activeChatId={activeChatId}
               onSelectChat={(id) => {
@@ -142,14 +142,16 @@ function App() {
           )}
 
           {/* Chat main space */}
-          <ChatArea
-            activeChatId={activeChatId}
-            user={currentUser}
-            onCreateChat={(id) => {
-              setActiveChatId(id);
-              if (isMobile) setIsSidebarOpen(false);
-            }}
-          />
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, height: '100%' }}>
+            <ChatArea
+              activeChatId={activeChatId}
+              user={currentUser}
+              onCreateChat={(id) => {
+                setActiveChatId(id);
+                if (isMobile) setIsSidebarOpen(false);
+              }}
+            />
+          </div>
         </div>
       )}
     </div>
@@ -161,7 +163,9 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     height: '100vh',
-    width: '100vw',
+    height: '100dvh',
+    width: '100%',
+    maxWidth: '100%',
     overflow: 'hidden',
     backgroundColor: 'var(--bg-primary)',
   },
@@ -170,6 +174,7 @@ const styles = {
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: '0 16px',
+    paddingTop: 'env(safe-area-inset-top, 0px)',
     height: '64px',
     borderBottom: '1px solid var(--border-color)',
     backgroundColor: 'var(--bg-secondary)',
@@ -230,7 +235,7 @@ const styles = {
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
     backdropFilter: 'blur(4px)',
     zIndex: 90,
-  }
+  },
 };
 
 export default App;

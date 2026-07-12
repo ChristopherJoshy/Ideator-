@@ -186,10 +186,7 @@ body {
   font-size: 1.35em;
   font-weight: 700;
   margin: 1em 0 0.4em;
-  background: linear-gradient(90deg, #f9a8d4, #c084fc, #818cf8);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: #f4f4f5; /* Muted white */
   letter-spacing: -0.02em;
 }
 
@@ -197,34 +194,31 @@ body {
   font-size: 1.15em;
   font-weight: 600;
   margin: 0.9em 0 0.35em;
-  background: linear-gradient(90deg, #67e8f9, #818cf8);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: #f4f4f5; /* Muted white */
 }
 
 .ai-md-h3 {
   font-size: 1em;
   font-weight: 600;
   margin: 0.8em 0 0.3em;
-  color: #86efac;
+  color: #e4e4e7; /* Zinc-200 */
 }
 
 /* Paragraphs */
 .ai-md-p {
   margin: 0.5em 0;
-  color: #e2e8f0;
+  color: #d4d4d8; /* Zinc-300 */
 }
 
 /* Bold */
 .ai-md-strong {
-  color: #fbbf24;
+  color: #ffffff; /* Bright white for elegant contrast */
   font-weight: 700;
 }
 
 /* Italic */
 .ai-md-em {
-  color: #c4b5fd;
+  color: #a1a1aa; /* Zinc-400 for secondary emphasis */
   font-style: italic;
 }
 
@@ -232,18 +226,18 @@ body {
 .ai-md-inline-code {
   font-family: var(--font-mono);
   font-size: 0.85em;
-  color: #2dd4bf;
-  background: rgba(45, 212, 191, 0.1);
-  border: 1px solid rgba(45, 212, 191, 0.25);
+  color: #f4f4f5;
+  background: #18181b; /* Zinc-900 */
+  border: 1px solid #27272a; /* Zinc-800 */
   border-radius: 4px;
   padding: 1px 5px;
 }
 
 /* Code blocks */
 .ai-md-pre {
-  background: #0d1117;
-  border: 1px solid #30363d;
-  border-left: 3px solid #818cf8;
+  background: #18181b; /* Zinc-900 console */
+  border: 1px solid #27272a; /* Zinc-800 */
+  border-left: 3px solid #a78bfa; /* Muted purple highlight */
   border-radius: 8px;
   margin: 0.8em 0;
   overflow-x: auto;
@@ -273,12 +267,12 @@ body {
 }
 
 .ai-md-ul > .ai-md-li::before {
-  content: '▹';
-  color: #f472b6;
-  font-size: 0.8em;
+  content: '•';
+  color: #a78bfa; /* Elegant purple dot */
+  font-size: 0.9em;
   position: absolute;
   left: 0;
-  top: 0.18em;
+  top: 0.05em;
 }
 
 /* Ordered lists */
@@ -297,8 +291,8 @@ body {
 
 .ai-md-ol > .ai-md-li::before {
   content: counter(ai-list) '.';
-  color: #34d399;
-  font-weight: 700;
+  color: #a78bfa; /* Elegant purple number */
+  font-weight: 600;
   font-size: 0.82em;
   position: absolute;
   left: 0;
@@ -306,21 +300,21 @@ body {
   font-family: var(--font-mono);
 }
 
-/* List items — NO flex, let text flow naturally */
+/* List items */
 .ai-md-li {
   margin: 0.25em 0;
-  color: #e2e8f0;
+  color: #d4d4d8; /* Zinc-300 */
   line-height: 1.6;
 }
 
 /* Blockquote */
 .ai-md-blockquote {
-  border-left: 3px solid #f87171;
-  background: rgba(248, 113, 113, 0.06);
+  border-left: 3px solid #a78bfa; /* Elegant purple accent */
+  background: rgba(167, 139, 250, 0.03); /* Muted purple tint */
   border-radius: 0 6px 6px 0;
   margin: 0.7em 0;
   padding: 8px 14px;
-  color: #fca5a5;
+  color: #d4d4d8;
   font-style: italic;
 }
 
@@ -332,22 +326,22 @@ body {
 /* Horizontal rule */
 .ai-md-hr {
   border: none;
-  border-top: 1px solid #374151;
+  border-top: 1px solid #27272a; /* Zinc-800 */
   margin: 1em 0;
 }
 
 /* Links */
 .ai-md-link {
-  color: #38bdf8;
+  color: #a78bfa; /* Muted purple links */
   text-decoration: underline;
-  text-decoration-color: rgba(56, 189, 248, 0.4);
+  text-decoration-color: rgba(167, 139, 250, 0.3);
   text-underline-offset: 2px;
   transition: color 0.15s, text-decoration-color 0.15s;
 }
 
 .ai-md-link:hover {
-  color: #7dd3fc;
-  text-decoration-color: rgba(125, 211, 252, 0.7);
+  color: #c084fc; /* Vibrant purple hover */
+  text-decoration-color: rgba(192, 132, 252, 0.6);
 }
 
 /* Tables */
@@ -355,7 +349,7 @@ body {
   overflow-x: auto;
   margin: 0.8em 0;
   border-radius: 8px;
-  border: 1px solid #2d3748;
+  border: 1px solid #27272a;
 }
 
 .ai-md-table {
@@ -365,19 +359,19 @@ body {
 }
 
 .ai-md-th {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(168, 85, 247, 0.2));
-  color: #c4b5fd;
+  background: #18181b; /* Zinc-900 headers */
+  color: #f4f4f5; /* Zinc-100 text */
   font-weight: 600;
   padding: 8px 12px;
   text-align: left;
-  border-bottom: 1px solid #4c1d95;
+  border-bottom: 2px solid #27272a;
   white-space: nowrap;
 }
 
 .ai-md-td {
   padding: 7px 12px;
-  color: #e2e8f0;
-  border-bottom: 1px solid #1e293b;
+  color: #d4d4d8;
+  border-bottom: 1px solid #27272a;
 }
 
 .ai-md-table tr:last-child .ai-md-td {
@@ -401,3 +395,77 @@ body {
   display: block;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
+
+/* ─── Thinking dots animation ─── */
+.thinking-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(129, 140, 248, 0.6);
+  animation: thinking-bounce 1.4s ease-in-out infinite;
+}
+.thinking-dot:nth-child(2) { animation-delay: 0.2s; }
+.thinking-dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes thinking-bounce {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.5; }
+  40%            { transform: translateY(-6px); opacity: 1; }
+}
+
+/* ─── Pulse animation for streaming dot ─── */
+@keyframes pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 6px rgba(129, 140, 248, 0.8); }
+  50%       { opacity: 0.4; box-shadow: 0 0 2px rgba(129, 140, 248, 0.2); }
+}
+
+/* ─── Follow-up chips hover ─── */
+button[style*="followupChip"]:hover,
+div[style*="followupRow"] button:hover {
+  background: rgba(129, 140, 248, 0.14) !important;
+  border-color: rgba(129, 140, 248, 0.45) !important;
+  color: rgba(220, 225, 255, 1) !important;
+}
+
+/* ─── Suggestion chips hover ─── */
+button[style*="suggestion"]:hover {
+  border-color: rgba(255, 255, 255, 0.35) !important;
+  color: var(--text-primary) !important;
+}
+
+/* ─── Header button hover ─── */
+button[style*="headerBtn"]:hover {
+  color: var(--text-primary) !important;
+}
+
+/* ─── Stop button hover ─── */
+button[style*="stopBtn"]:hover {
+  background: rgba(248, 113, 113, 0.22) !important;
+}
+
+/* ─── Copy message button hover ─── */
+button[style*="copyMsgBtn"]:hover {
+  opacity: 1 !important;
+}
+
+/* ─── KaTeX math rendering overrides (dark mode) ─── */
+.katex {
+  color: #e2e8f0 !important;
+  font-size: 1em !important;
+}
+.katex-display {
+  margin: 12px 0 !important;
+  overflow-x: auto;
+}
+
+/* ─── Home send button hover ─── */
+button[style*="homeSend"]:hover {
+  background: #e8e8e5 !important;
+}
+
+/* ─── Slash popover items hover ─── */
+div[style*="slashPopover"] button:hover {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+

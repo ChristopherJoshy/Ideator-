@@ -14,6 +14,20 @@ class ChatMessage(BaseModel):
     sources: Optional[List[Dict[str, Any]]] = None
     tool_steps: Optional[List[Dict[str, Any]]] = None  # Trace display items
 
+class IdeaCanvas(BaseModel):
+    value_prop: str = ""
+    target_user: str = ""
+    tech_stack: str = ""
+    checklist: List[str] = Field(default_factory=list)
+    scores: Dict[str, float] = Field(default_factory=lambda: {
+        "novelty": 0.0,
+        "feasibility": 0.0,
+        "moat": 0.0,
+        "market_signal": 0.0,
+        "demo_ability": 0.0
+    })
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
 class Chat(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), alias="_id")
     user_id: str
@@ -21,6 +35,8 @@ class Chat(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     title: Optional[str] = None
+    canvas: Optional[IdeaCanvas] = None
+    canvas_history: List[IdeaCanvas] = Field(default_factory=list)
 
     model_config = {
         "populate_by_name": True,

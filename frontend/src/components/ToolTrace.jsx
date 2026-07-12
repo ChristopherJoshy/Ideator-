@@ -163,16 +163,49 @@ function SourceCard({ source, index }) {
 const TOOL_ICONS = {
   CollisionCheck: '🔍',
   WebResearch: '🌐',
+  AcademicSearch: '🔬',
+  GithubSearch: '💻',
+  GenerateChart: '📊',
+  HackerNewsSearch: '▲',
+  WikipediaSummary: '📖',
+  RedditSearch: '💬',
+  NpmSearch: '📦',
+  CrossrefSearch: '📚',
+  WorldBankIndicator: '📈',
+  Coinpaprika: '🪙',
+  FetchNewsletterFeeds: '📰',
 };
 
 const TOOL_LABELS = {
   CollisionCheck: 'Novelty Check',
-  WebResearch: 'Web Research',
+  WebResearch: 'Web Search',
+  AcademicSearch: 'arXiv Search',
+  GithubSearch: 'GitHub Search',
+  GenerateChart: 'Chart Generator',
+  HackerNewsSearch: 'Hacker News',
+  WikipediaSummary: 'Wikipedia Summary',
+  RedditSearch: 'Reddit Search',
+  NpmSearch: 'npm Registry Search',
+  CrossrefSearch: 'CrossRef Literature',
+  WorldBankIndicator: 'World Bank Indicators',
+  Coinpaprika: 'Coinpaprika Crypto',
+  FetchNewsletterFeeds: 'Trends / Newsletter feeds',
 };
 
 const TOOL_COLORS = {
   CollisionCheck: '#f59e0b',
   WebResearch: '#38bdf8',
+  AcademicSearch: '#a78bfa',
+  GithubSearch: '#e2e8f0',
+  GenerateChart: '#10b981',
+  HackerNewsSearch: '#ff6600',
+  WikipediaSummary: '#e2e8f0',
+  RedditSearch: '#ff4500',
+  NpmSearch: '#cb3837',
+  CrossrefSearch: '#f43f5e',
+  WorldBankIndicator: '#3b82f6',
+  Coinpaprika: '#fbbf24',
+  FetchNewsletterFeeds: '#8b5cf6',
 };
 
 /* ── Styles ──────────────────────────────────────────────────── */

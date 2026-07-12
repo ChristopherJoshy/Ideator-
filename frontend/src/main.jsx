@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import '@mantine/core/styles.css'
 import { MantineProvider, createTheme } from '@mantine/core'
 import './index.css'
+import './responsive.css'
 import App from './App.jsx'
 
 const theme = createTheme({

@@ -1,0 +1,119 @@
+/* ============================================================
+   Ideator — Global Responsive Layer (2026 best practices)
+   Goal: every element adapts cleanly from 320px phones to
+   ultrawide desktops without horizontal scroll or clipping.
+   ============================================================ */
+
+/* Prevent any accidental horizontal overflow on the whole document.
+   This is the single most common cause of "broken on mobile" layouts. */
+html,
+body,
+#root {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Dynamic viewport height fixes mobile browser-chrome jumpiness so the
+   input bar is never hidden behind the address bar. 100vh is the fallback. */
+.app-shell {
+  height: 100vh;
+  height: 100dvh;
+}
+
+/* Respect notched devices (iPhone Safe Area / Android cutouts). */
+.safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Inputs must be >=16px on mobile or iOS Safari auto-zooms the page. */
+input,
+textarea,
+select {
+  font-size: 16px;
+  max-width: 100%;
+}
+.ai-md-pre,
+.ai-markdown pre {
+  max-width: 100%;
+}
+
+/* Fluid type scale helpers (clamp = min, preferred, max). */
+.fluid-home-title {
+  font-size: clamp(28px, 7vw, 48px);
+  line-height: 1.08;
+}
+.fluid-home-subtitle {
+  font-size: clamp(14px, 2.6vw, 15px);
+}
+
+/* Larger, finger-friendly tap targets on coarse pointers (touch). */
+@media (pointer: coarse) {
+  button,
+  [role="button"],
+  .ideator-chat-item {
+    min-height: 40px;
+  }
+  .sendBtn,
+  .stopBtn,
+  .iconBtn {
+    min-width: 40px;
+    min-height: 40px;
+  }
+}
+
+/* Small phones: tighten spacing so nothing gets clipped. */
+@media (max-width: 380px) {
+  .homeScreen {
+    padding: 24px 14px !important;
+  }
+  .inputWrapper {
+    gap: 6px !important;
+    padding: 6px 6px 6px 10px !important;
+  }
+  .composerFooter {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .headerBtn {
+    padding: 5px 9px !important;
+  }
+}
+
+/* Tablets / small laptops: keep sidebar comfortable, never cramped. */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .sidebarWrapper {
+    width: 240px;
+  }
+}
+
+/* Ultrawide: cap reading width so long assistant messages stay legible. */
+@media (min-width: 1600px) {
+  .messageList {
+    max-width: 1100px;
+    margin-left: auto;
+    margin-right: auto;
+    width: 100%;
+  }
+}
+
+/* Honour users who prefer reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Visible focus ring for keyboard users (accessibility + never breaks layout). */
+:focus-visible {
+  outline: 2px solid var(--accent-violet, #d4d4d4);
+  outline-offset: 2px;
+}

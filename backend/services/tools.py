@@ -109,45 +109,64 @@ async def collision_check(text: str) -> str:
 
 
 async def web_research(query: str) -> str | None:
-    """Search the web via Tavily when a key is configured; otherwise return None.
+    """Search the web via Tavily when a key is configured; falls back to DuckDuckGo (ddgs).
 
     Returns a JSON-serialisable string with structured source data so the
     frontend can render individual result cards (title + url + snippet).
     """
     key = settings.TAVILY_API_KEY
-    if not key:
-        return None
+    if key:
+        # --- Tavily primary path ---
+        try:
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                response = await client.post(
+                    "https://api.tavily.com/search",
+                    json={
+                        "api_key": key,
+                        "query": query,
+                        "max_results": 5,
+                        "search_depth": "basic",
+                        "include_answer": False,
+                    },
+                )
+                response.raise_for_status()
+                results = response.json().get("results", [])
+        except Exception as exc:
+            logger.warning("Tavily web research failed: %s", exc)
+            results = []
+
+        if results:
+            sources = []
+            for item in results[:5]:
+                title = item.get("title", "")
+                url = item.get("url", "")
+                snippet = item.get("content", "")[:200] if item.get("content") else ""
+                if title or url:
+                    sources.append({"title": title, "url": url, "snippet": snippet})
+            if sources:
+                return json.dumps({"type": "web_research", "sources": sources})
+
+    # --- DuckDuckGo fallback (zero key, ddgs library) ---
     try:
-        async with httpx.AsyncClient(timeout=20.0) as client:
-            response = await client.post(
-                "https://api.tavily.com/search",
-                json={
-                    "api_key": key,
-                    "query": query,
-                    "max_results": 5,
-                    "search_depth": "basic",
-                    "include_answer": False,
-                },
-            )
-            response.raise_for_status()
-            results = response.json().get("results", [])
-    except Exception as exc:
-        logger.warning("Web research failed: %s", exc)
-        return "Web research unavailable right now."
-
-    if not results:
+        from ddgs import DDGS
+        results_ddg = list(DDGS().text(query, max_results=5))
+        if not results_ddg:
+            return "No relevant sources found."
+        sources = [
+            {
+                "title": r.get("title", ""),
+                "url": r.get("href", ""),
+                "snippet": (r.get("body", "") or "")[:200],
+            }
+            for r in results_ddg
+            if r.get("title") or r.get("href")
+        ]
+        if sources:
+            return json.dumps({"type": "web_research", "sources": sources})
         return "No relevant sources found."
-
-    # Build a structured payload the frontend can render as cards
-    sources = []
-    for item in results[:5]:
-        title = item.get("title", "")
-        url = item.get("url", "")
-        snippet = item.get("content", "")[:200] if item.get("content") else ""
-        if title or url:
-            sources.append({"title": title, "url": url, "snippet": snippet})
-
-    return json.dumps({"type": "web_research", "sources": sources})
+    except Exception as exc:
+        logger.warning("DuckDuckGo fallback failed: %s", exc)
+        return "Web research unavailable right now."
 
 
 async def academic_search(query: str) -> str:
@@ -192,6 +211,396 @@ async def academic_search(query: str) -> str:
         return "Academic search service is currently unavailable."
 
 
+async def hacker_news_search(query: str) -> str:
+    """Search Hacker News via Algolia API (free, no key, 10k req/hr).
+
+    Returns the top stories + discussions related to a query — essential
+    for gauging developer/startup community sentiment on any topic.
+    """
+    try:
+        url = f"https://hn.algolia.com/api/v1/search?query={urllib.parse.quote(query)}&tags=story&hitsPerPage=6"
+        headers = {"User-Agent": "Ideator-App/1.0"}
+        async with httpx.AsyncClient(timeout=12.0, follow_redirects=True) as client:
+            resp = await client.get(url, headers=headers)
+            resp.raise_for_status()
+
+        hits = resp.json().get("hits", [])
+        if not hits:
+            return "No relevant Hacker News stories found."
+
+        sources = []
+        for hit in hits:
+            title = hit.get("title", "Untitled")
+            story_url = hit.get("url") or f"https://news.ycombinator.com/item?id={hit.get('objectID', '')}"
+            points = hit.get("points") or 0
+            num_comments = hit.get("num_comments") or 0
+            author = hit.get("author", "")
+            snippet = f"▲ {points} pts · {num_comments} comments · by {author}"
+            sources.append({"title": title, "url": story_url, "snippet": snippet})
+
+        return json.dumps({"type": "web_research", "sources": sources})
+    except Exception as exc:
+        logger.warning("Hacker News search failed: %s", exc)
+        return "Hacker News search is currently unavailable."
+
+
+async def wikipedia_summary(topic: str) -> str:
+    """Fetch a concise Wikipedia summary for a topic (free, no key, Wikimedia REST API).
+
+    Perfect for instantly grounding conversations in factual, encyclopaedic context
+    about a technology, domain, concept, or person.
+    """
+    try:
+        # First, search for the best matching article
+        search_url = (
+            f"https://en.wikipedia.org/w/api.php?action=query&list=search"
+            f"&srsearch={urllib.parse.quote(topic)}&format=json&srlimit=1"
+        )
+        headers = {"User-Agent": "Ideator-App/1.0 (educational/research tool)"}
+        async with httpx.AsyncClient(timeout=12.0, follow_redirects=True) as client:
+            search_resp = await client.get(search_url, headers=headers)
+            search_resp.raise_for_status()
+            search_data = search_resp.json()
+
+        results = search_data.get("query", {}).get("search", [])
+        if not results:
+            return f"No Wikipedia article found for '{topic}'."
+
+        page_title = results[0]["title"]
+        encoded_title = urllib.parse.quote(page_title.replace(" ", "_"))
+
+        # Fetch the summary for the matched article
+        summary_url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{encoded_title}"
+        async with httpx.AsyncClient(timeout=12.0, follow_redirects=True) as client:
+            summary_resp = await client.get(summary_url, headers=headers)
+            summary_resp.raise_for_status()
+            data = summary_resp.json()
+
+        extract = data.get("extract", "")
+        page_url = data.get("content_urls", {}).get("desktop", {}).get("page", "")
+        description = data.get("description", "")
+
+        if not extract:
+            return f"No summary available for '{topic}' on Wikipedia."
+
+        snippet = extract[:300] + ("…" if len(extract) > 300 else "")
+        title_display = f"{page_title}" + (f" — {description}" if description else "")
+
+        sources = [{"title": title_display, "url": page_url, "snippet": snippet}]
+        return json.dumps({"type": "web_research", "sources": sources})
+    except Exception as exc:
+        logger.warning("Wikipedia summary failed for topic '%s': %s", topic, exc)
+        return "Wikipedia lookup is currently unavailable."
+
+
+async def reddit_search(query: str) -> str:
+    """Search Reddit posts using search engines (Tavily or DuckDuckGo) scoped to reddit.com.
+
+    Returns top discussions — ideal for validating whether a pain point is widely felt.
+    """
+    import re
+    scoped_query = f"site:reddit.com {query}"
+    key = settings.TAVILY_API_KEY
+    results = []
+    
+    # 1. Try Tavily first if key is available
+    if key:
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                response = await client.post(
+                    "https://api.tavily.com/search",
+                    json={
+                        "api_key": key,
+                        "query": scoped_query,
+                        "max_results": 5,
+                        "search_depth": "basic",
+                        "include_answer": False,
+                    },
+                )
+                response.raise_for_status()
+                results = response.json().get("results", [])
+        except Exception as exc:
+            logger.warning("Tavily search failed for Reddit query: %s", exc)
+            results = []
+
+    # 2. Try DuckDuckGo fallback if Tavily yielded no results
+    if not results:
+        try:
+            from ddgs import DDGS
+            results_ddg = list(DDGS().text(scoped_query, max_results=5))
+            results = [
+                {
+                    "title": r.get("title", ""),
+                    "url": r.get("href", ""),
+                    "content": r.get("body", ""),
+                }
+                for r in results_ddg
+                if r.get("title") or r.get("href")
+            ]
+        except Exception as exc:
+            logger.warning("DuckDuckGo fallback failed for Reddit query: %s", exc)
+
+    if not results:
+        return "No relevant Reddit posts found."
+
+    sources = []
+    for item in results[:5]:
+        title = item.get("title", "")
+        # Clean title
+        title = title.replace(" - Reddit", "").replace(" : r/reddit", "").replace(" : Reddit", "").strip()
+        url = item.get("url", "")
+        snippet = item.get("content", "")[:200] if item.get("content") else ""
+        
+        # Try to parse subreddit name from url
+        subreddit = "reddit"
+        match = re.search(r"reddit\.com/r/([^/]+)", url)
+        if match:
+            subreddit = f"r/{match.group(1)}"
+            
+        snippet_text = f"{subreddit}"
+        if snippet:
+            snippet_text += f" — {snippet}"
+            
+        sources.append({"title": title, "url": url, "snippet": snippet_text})
+
+    return json.dumps({"type": "web_research", "sources": sources})
+
+
+async def npm_search(query: str) -> str:
+    """Search the npm registry for JavaScript packages (free, no key, no rate limit).
+
+    Useful for discovering existing JS/TS libraries, tools, and frameworks that
+    relate to an idea — helping avoid reinventing the wheel.
+    """
+    try:
+        url = f"https://registry.npmjs.org/-/v1/search?text={urllib.parse.quote(query)}&size=5"
+        headers = {"User-Agent": "Ideator-App/1.0"}
+        async with httpx.AsyncClient(timeout=12.0, follow_redirects=True) as client:
+            resp = await client.get(url, headers=headers)
+            resp.raise_for_status()
+
+        objects = resp.json().get("objects", [])
+        if not objects:
+            return "No relevant npm packages found."
+
+        sources = []
+        for obj in objects:
+            pkg = obj.get("package", {})
+            name = pkg.get("name", "Unnamed")
+            description = pkg.get("description", "") or ""
+            version = pkg.get("version", "")
+            npm_url = f"https://www.npmjs.com/package/{name}"
+            downloads = obj.get("score", {}).get("detail", {}).get("popularity", 0)
+            keyword_list = pkg.get("keywords", []) or []
+            keywords = ", ".join(keyword_list[:4])
+
+            snippet = f"v{version}"
+            if keywords:
+                snippet += f" · {keywords}"
+            if description:
+                snippet += f" — {description[:120]}"
+
+            sources.append({"title": f"npm: {name}", "url": npm_url, "snippet": snippet})
+
+        return json.dumps({"type": "web_research", "sources": sources})
+    except Exception as exc:
+        logger.warning("npm search failed: %s", exc)
+        return "npm registry search is currently unavailable."
+
+
+async def crossref_search(query: str) -> str:
+    """Search CrossRef for DOI-verified academic papers across all disciplines (free, no key).
+
+    Unlike arXiv (CS/Physics focused), CrossRef covers all fields: medicine,
+    economics, social science, engineering, etc. — with DOI links and citation counts.
+    """
+    try:
+        params = urllib.parse.urlencode({
+            "query": query,
+            "rows": 5,
+            "select": "title,author,published,DOI,abstract,is-referenced-by-count,container-title",
+            "mailto": "ideator@example.com",  # "polite pool" = higher rate limits
+        })
+        url = f"https://api.crossref.org/works?{params}"
+        headers = {"User-Agent": "Ideator-App/1.0 (mailto:ideator@example.com)"}
+        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+            resp = await client.get(url, headers=headers)
+            resp.raise_for_status()
+
+        items = resp.json().get("message", {}).get("items", [])
+        if not items:
+            return "No relevant papers found via CrossRef."
+
+        sources = []
+        for item in items:
+            raw_title = item.get("title", [])
+            title = raw_title[0] if raw_title else "Untitled"
+            doi = item.get("DOI", "")
+            doi_url = f"https://doi.org/{doi}" if doi else ""
+            journal_list = item.get("container-title", [])
+            journal = journal_list[0] if journal_list else ""
+            pub_date = item.get("published", {}).get("date-parts", [[None]])[0]
+            year = pub_date[0] if pub_date else ""
+            citations = item.get("is-referenced-by-count", 0)
+            abstract_raw = item.get("abstract", "") or ""
+            # CrossRef abstracts can contain JATS XML — strip tags
+            import re
+            abstract_clean = re.sub(r"<[^>]+>", "", abstract_raw).strip()
+            snippet = f"Cited {citations}× · {journal} ({year})"
+            if abstract_clean:
+                snippet += f" — {abstract_clean[:150]}"
+
+            sources.append({"title": title, "url": doi_url, "snippet": snippet})
+
+        return json.dumps({"type": "web_research", "sources": sources})
+    except Exception as exc:
+        logger.warning("CrossRef search failed: %s", exc)
+        return "CrossRef search is currently unavailable."
+
+
+async def world_bank_indicator(query: str) -> str:
+    """Fetch World Bank economic data for market sizing and economic context (free, no key).
+
+    Automatically resolves natural-language queries into World Bank indicator series
+    (e.g., 'GDP India', 'inflation USA', 'internet usage Nigeria').
+    """
+    # Mapping common query keywords to World Bank indicator codes
+    INDICATOR_MAP = {
+        "gdp": "NY.GDP.MKTP.CD",
+        "population": "SP.POP.TOTL",
+        "inflation": "FP.CPI.TOTL.ZG",
+        "unemployment": "SL.UEM.TOTL.ZS",
+        "internet": "IT.NET.USER.ZS",
+        "mobile": "IT.CEL.SETS.P2",
+        "poverty": "SI.POV.DDAY",
+        "electricity": "EG.ELC.ACCS.ZS",
+        "co2": "EN.ATM.CO2E.PC",
+        "education": "SE.ADT.LITR.ZS",
+        "health": "SH.XPD.CHEX.GD.ZS",
+        "trade": "NE.TRD.GNFS.ZS",
+    }
+
+    # Country code guessing (common countries)
+    COUNTRY_MAP = {
+        "india": "IN", "china": "CN", "usa": "US", "united states": "US",
+        "uk": "GB", "united kingdom": "GB", "germany": "DE", "france": "FR",
+        "japan": "JP", "brazil": "BR", "nigeria": "NG", "kenya": "KE",
+        "indonesia": "ID", "pakistan": "PK", "bangladesh": "BD", "mexico": "MX",
+        "russia": "RU", "south africa": "ZA", "australia": "AU", "canada": "CA",
+        "world": "WLD", "global": "WLD",
+    }
+
+    query_lower = query.lower()
+    indicator_code = next(
+        (code for keyword, code in INDICATOR_MAP.items() if keyword in query_lower),
+        "NY.GDP.MKTP.CD"  # Default to GDP
+    )
+    country_code = next(
+        (code for name, code in COUNTRY_MAP.items() if name in query_lower),
+        "WLD"  # Default to world
+    )
+
+    try:
+        url = (
+            f"https://api.worldbank.org/v2/country/{country_code}/indicator/{indicator_code}"
+            f"?format=json&mrv=5&per_page=5"
+        )
+        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+            resp = await client.get(url)
+            resp.raise_for_status()
+
+        data_list = resp.json()
+        if not isinstance(data_list, list) or len(data_list) < 2:
+            return "No World Bank data found for this query."
+
+        records = [r for r in data_list[1] if r.get("value") is not None]
+        if not records:
+            return "No recent World Bank data available for this indicator."
+
+        indicator_name = records[0].get("indicator", {}).get("value", indicator_code)
+        country_name = records[0].get("country", {}).get("value", country_code)
+        wb_url = f"https://data.worldbank.org/indicator/{indicator_code}?locations={country_code}"
+
+        snippet_parts = [f"{r['date']}: {r['value']:,.1f}" for r in records[:5]]
+        snippet = " | ".join(snippet_parts)
+
+        sources = [{
+            "title": f"World Bank: {indicator_name} — {country_name}",
+            "url": wb_url,
+            "snippet": snippet
+        }]
+        return json.dumps({"type": "web_research", "sources": sources})
+    except Exception as exc:
+        logger.warning("World Bank indicator fetch failed: %s", exc)
+        return "World Bank data is currently unavailable."
+
+
+async def coinpaprika(query: str) -> str:
+    """Fetch cryptocurrency data from Coinpaprika (free, no key, 10 req/sec).
+
+    Returns price, market cap, description, and social links for a coin.
+    Useful for Web3/crypto ideation and market context.
+    """
+    try:
+        # First, search for coin by name/symbol
+        headers = {"User-Agent": "Ideator-App/1.0"}
+        coins_url = "https://api.coinpaprika.com/v1/coins"
+        async with httpx.AsyncClient(timeout=12.0, follow_redirects=True) as client:
+            coins_resp = await client.get(coins_url, headers=headers)
+            coins_resp.raise_for_status()
+            all_coins = coins_resp.json()
+
+        query_lower = query.lower().strip()
+        # Find best matching coin
+        matched = next(
+            (c for c in all_coins if c.get("symbol", "").lower() == query_lower
+             or c.get("name", "").lower() == query_lower),
+            None
+        )
+        # Fallback: partial name match
+        if not matched:
+            matched = next(
+                (c for c in all_coins if query_lower in c.get("name", "").lower()
+                 or query_lower in c.get("symbol", "").lower()),
+                None
+            )
+
+        if not matched:
+            return f"No cryptocurrency matching '{query}' found on Coinpaprika."
+
+        coin_id = matched["id"]
+        # Fetch ticker (price data) and coin details in parallel
+        async with httpx.AsyncClient(timeout=12.0, follow_redirects=True) as client:
+            ticker_resp = await client.get(
+                f"https://api.coinpaprika.com/v1/tickers/{coin_id}", headers=headers
+            )
+            ticker_resp.raise_for_status()
+            ticker = ticker_resp.json()
+
+        quotes = ticker.get("quotes", {}).get("USD", {})
+        price = quotes.get("price", 0)
+        market_cap = quotes.get("market_cap", 0)
+        change_24h = quotes.get("percent_change_24h", 0)
+        change_7d = quotes.get("percent_change_7d", 0)
+
+        name = ticker.get("name", query)
+        symbol = ticker.get("symbol", "")
+        rank = ticker.get("rank", "?")
+
+        snippet = (
+            f"Rank #{rank} · ${price:,.4f} USD · "
+            f"MCap: ${market_cap:,.0f} · "
+            f"24h: {change_24h:+.1f}% · 7d: {change_7d:+.1f}%"
+        )
+        coin_url = f"https://coinpaprika.com/coin/{coin_id}/"
+
+        sources = [{"title": f"{name} ({symbol}) — Coinpaprika", "url": coin_url, "snippet": snippet}]
+        return json.dumps({"type": "web_research", "sources": sources})
+    except Exception as exc:
+        logger.warning("Coinpaprika fetch failed: %s", exc)
+        return "Cryptocurrency data is currently unavailable."
+
+
 async def github_search(query: str) -> str:
     """Search open-source repositories via GitHub REST API (free, open-access, no keys required)."""
     try:
@@ -234,23 +643,32 @@ async def github_search(query: str) -> str:
 
 
 async def fetch_newsletter_feeds(topic: str) -> str:
-    """
-    Fetch trending newsletters, blog posts, and articles from top departments
-    (tech, science, business, or custom topics) using RSS feeds (no API key required).
+    """Fetch trending newsletters, blog posts, and articles from top departments
+    (tech, science, business, AI, VC, or custom topics) using RSS feeds (no API key required).
     """
     topic_clean = topic.strip().lower()
-    
-    # Select feed URL based on category, defaulting to a custom Google News search feed
-    if topic_clean in ["tech", "technology", "engineering"]:
-        url = "https://news.ycombinator.com/rss"
-    elif topic_clean in ["science", "research"]:
-        url = "https://www.sciencedaily.com/rss/top/technology.xml"
-    elif topic_clean in ["business", "startups", "finance"]:
-        url = "https://techcrunch.com/feed/"
-    else:
-        # Custom search query via Google News RSS
+
+    # Extended feed map with high-signal sources
+    FEED_MAP = {
+        ("tech", "technology", "engineering"): "https://news.ycombinator.com/rss",
+        ("ai", "artificial intelligence", "machine learning", "llm"): "https://aiweekly.co/issues.rss",
+        ("science", "research"): "https://www.sciencedaily.com/rss/top/technology.xml",
+        ("business", "startups", "finance"): "https://techcrunch.com/startups/feed/",
+        ("vc", "venture capital", "investment"): "https://a16z.com/feed/",
+        ("product", "launch", "producthunt"): "https://www.producthunt.com/feed",
+        ("trends", "trending", "viral"): "https://explodingtopics.com/blog/feed",
+    }
+
+    url = None
+    for keys, feed_url in FEED_MAP.items():
+        if any(k in topic_clean for k in keys):
+            url = feed_url
+            break
+
+    if not url:
+        # Google News RSS fallback for custom topics
         url = f"https://news.google.com/rss/search?q={urllib.parse.quote(topic)}&hl=en-US&gl=US&ceid=US:en"
-        
+
     try:
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
@@ -295,8 +713,7 @@ async def fetch_newsletter_feeds(topic: str) -> str:
 
 
 async def generate_chart(chart_type: str, title: str, labels: list[str] | str, values: list[float] | str, x_label: str = "", y_label: str = "", base_url: str = "http://localhost:8000") -> str:
-    """
-    Generates a visual chart (bar, line, pie, or scatter) using matplotlib,
+    """Generates a visual chart (bar, line, pie, or scatter) using matplotlib,
     saves the image as a static asset, and returns the absolute markdown image link.
     """
     try:

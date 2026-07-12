@@ -30,37 +30,49 @@ def get_qdrant_client() -> AsyncQdrantClient:
             )
     return qdrant_manager.client
 
+# Per-collection vector dimensions.
+#   - claimed_idea_vectors: semantic novelty check, uses OpenAI text-embedding-3-small (1536)
+#   - idea_dna_vectors: lightweight memory fallback, uses deterministic _stable_vector (384)
+COLLECTION_DIMENSIONS = {
+    "claimed_idea_vectors": 1536,
+    "idea_dna_vectors": 384,
+}
+
+
 async def init_qdrant_collections():
     client = get_qdrant_client()
-    collections = ["claimed_idea_vectors", "idea_dna_vectors"]
-    
+    collections = list(COLLECTION_DIMENSIONS.keys())
+
     for collection in collections:
+        expected_size = COLLECTION_DIMENSIONS[collection]
         try:
             exists = await client.collection_exists(collection_name=collection)
             if exists:
                 try:
                     info = await client.get_collection(collection_name=collection)
-                    # Check if vector dimension is 1536.
                     # Qdrant v1.x returns vectors config size under config.params.vectors.size
                     current_size = 0
                     if hasattr(info.config.params, "vectors") and hasattr(info.config.params.vectors, "size"):
                         current_size = info.config.params.vectors.size
                     elif hasattr(info.config.params, "vectors") and isinstance(info.config.params.vectors, dict):
                         current_size = info.config.params.vectors.get("size", 0)
-                        
-                    if current_size != 1536:
-                        logger.warning(f"Dimension mismatch on collection {collection}: expected 1536, got {current_size}. Re-creating collection...")
+
+                    if current_size != expected_size:
+                        logger.warning(
+                            f"Dimension mismatch on collection {collection}: expected {expected_size}, "
+                            f"got {current_size}. Re-creating collection..."
+                        )
                         await client.delete_collection(collection_name=collection)
                         exists = False
                 except Exception as check_err:
                     logger.warning(f"Failed to check details for collection {collection}: {check_err}")
 
             if not exists:
-                logger.info(f"Creating Qdrant collection: {collection}...")
+                logger.info(f"Creating Qdrant collection: {collection} (dim={expected_size})...")
                 await client.create_collection(
                     collection_name=collection,
                     vectors_config=models.VectorParams(
-                        size=1536,  # OpenAI text-embedding-3-small dimension
+                        size=expected_size,
                         distance=models.Distance.COSINE
                     )
                 )
